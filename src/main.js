@@ -45,14 +45,21 @@ function analyzeSalesData(data, options) {
     // @TODO: Проверка входных данных
     if (!data 
         || !Array.isArray(data.sellers)
+        || !Array.isArray(data.products)
+        || !Array.isArray(data.purchase_records)
         || data.sellers.length === 0
+        || data.products.length === 0
+        || data.purchase_records.length === 0
     ) {
         throw new Error('Некорректные входные данные');
     }
 
     // @TODO: Проверка наличия опций
-    if (!calculateRevenue || !calculateBonus){
-        throw new Error('Чего-то не хватает');
+    if (!options ||
+        typeof options.calculateRevenue !== 'function' ||
+        typeof options.calculateBonus !== 'function' 
+    ) {
+            throw new Error('Чего-то не хватает');
     }
 
     // @TODO: Подготовка промежуточных данных для сбора статистики
@@ -79,21 +86,23 @@ function analyzeSalesData(data, options) {
     // @TODO: Расчет выручки и прибыли для каждого продавца
     data.purchase_records.forEach(record => {
         const seller = sellerIndex[record.seller_id];
-        if (!seller) return;
+        if (!seller) {
+            throw new Error(`Продавец не найден: ${record.seller_id}`);
+        };
 
         seller.sales_count += 1;
+        seller.revenue += record.total_amount;
 
         record.items.forEach(item => {
             const product =productIndex[item.sku];
-            if (!product) return;
+            if (!product) {
+                throw new Error(`Товар не найден: ${item.sku}`);
+            }
 
             const quantity = +(item.quantity) || 0;
             const cost = product.purchase_price * quantity;
             const revenue = calculateRevenue(item, product);
-            const profit = revenue - cost;
-
-            seller.revenue += revenue;
-            seller.profit += profit;
+            seller.profit += revenue - cost;
 
             seller.products_sold[item.sku] =
             (seller.products_sold[item.sku] || 0) + quantity;
